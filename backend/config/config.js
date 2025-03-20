@@ -1,91 +1,89 @@
 /**
  * Sistema de Monitoramento GPS Tarkan
- * Arquivo de configuração central
+ * Configurações centralizadas do sistema
  */
 
 require('dotenv').config();
 
+// Exportar configurações
 module.exports = {
-  // Ambiente da aplicação
+  // Ambiente
   env: process.env.NODE_ENV || 'development',
   
-  // Configuração do servidor
+  // Configurações do servidor web
   server: {
-    port: process.env.PORT || 3000,
+    port: parseInt(process.env.PORT || '3000', 10),
     host: process.env.HOST || 'localhost',
+    bodyLimit: process.env.BODY_LIMIT || '100kb',
   },
   
-  // Configuração do banco de dados
-  database: {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
-    name: process.env.DB_NAME || 'traccar_db',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    logging: process.env.DB_LOGGING === 'true',
-    sync: process.env.DB_SYNC === 'true',
-    forceSync: process.env.DB_FORCE_SYNC === 'true',
-  },
-  
-  // Configuração de autenticação e segurança
-  auth: {
-    jwtSecret: process.env.JWT_SECRET || 'seu_jwt_secret',
-    jwtExpire: process.env.JWT_EXPIRE || '7d',
-    saltRounds: parseInt(process.env.SALT_ROUNDS || '10'),
-    sessionSecret: process.env.SESSION_SECRET || 'seu_session_secret',
-  },
-  
-  // Configuração de email
-  email: {
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_SECURE === 'true',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    from: process.env.EMAIL_FROM || 'noreply@tarkan.com.br',
-  },
-  
-  // Configuração de API e CORS
+  // Configurações da API
   api: {
-    prefix: process.env.API_PREFIX || '/api',
-    version: process.env.API_VERSION || 'v1',
+    prefix: '/api',
+    version: 'v1',
     corsOrigin: process.env.CORS_ORIGIN || '*',
   },
   
-  // Configuração de upload de arquivos
-  upload: {
-    dir: process.env.UPLOAD_DIR || 'uploads',
-    maxSize: parseInt(process.env.UPLOAD_MAX_SIZE || '5242880'), // 5MB
-    allowedTypes: (process.env.UPLOAD_ALLOWED_TYPES || 'image/jpeg,image/png,application/pdf').split(','),
+  // Configurações do banco de dados
+  database: {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '3306', 10),
+    name: process.env.DB_NAME || 'traccar_db',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || 'root',
+    dialect: 'mysql',
+    logging: process.env.NODE_ENV === 'development',
+    sync: process.env.DB_SYNC === 'true',
   },
   
-  // Configuração de logs
+  // JWT para autenticação
+  jwt: {
+    secret: process.env.JWT_SECRET || 'sua-chave-secreta-padrao',
+    expiresIn: process.env.JWT_EXPIRES_IN || '8h',
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+  },
+  
+  // Configurações para limitação de taxa
+  rateLimit: {
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '900000', 10), // 15 minutos
+    max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10), // limite de 100 requisições por janela
+  },
+  
+  // Configurações do receptor de protocolos GPS
+  protocolServer: {
+    port: parseInt(process.env.PROTOCOL_PORT || '5023', 10),
+    supportedProtocols: ['tk103', 'gt06', 'h02', 'coban', 'teltonika'],
+    bufferSize: parseInt(process.env.PROTOCOL_BUFFER_SIZE || '1024', 10),
+    timeout: parseInt(process.env.PROTOCOL_TIMEOUT || '60000', 10), // 60 segundos
+  },
+  
+  // Configurações para logs
   logs: {
     level: process.env.LOG_LEVEL || 'info',
-    file: process.env.LOG_FILE,
+    file: process.env.LOG_FILE || 'logs/app.log',
     maxSize: process.env.LOG_MAX_SIZE || '10m',
-    maxFiles: process.env.LOG_MAX_FILES || '7d',
+    maxFiles: parseInt(process.env.LOG_MAX_FILES || '7', 10),
   },
   
-  // Configuração do protocolo
-  protocol: {
-    port: process.env.PROTOCOL_PORT || 5023,
-    timeout: parseInt(process.env.PROTOCOL_TIMEOUT || '120000'), // 2min
+  // Configurações para alertas e notificações
+  notifications: {
+    email: {
+      enabled: process.env.EMAIL_ENABLED === 'true',
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT || '587', 10),
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER || '',
+        pass: process.env.EMAIL_PASS || '',
+      },
+      from: process.env.EMAIL_FROM || 'noreply@tarkan.com.br',
+    },
+    sms: {
+      enabled: process.env.SMS_ENABLED === 'true',
+      provider: process.env.SMS_PROVIDER || 'twilio',
+      accountSid: process.env.SMS_ACCOUNT_SID || '',
+      authToken: process.env.SMS_AUTH_TOKEN || '',
+      from: process.env.SMS_FROM || '',
+    },
   },
-  
-  // Configuração de localização e mapas
-  location: {
-    timezone: process.env.TIMEZONE || 'America/Sao_Paulo',
-    latitude: parseFloat(process.env.DEFAULT_LATITUDE || '-23.5505'),
-    longitude: parseFloat(process.env.DEFAULT_LONGITUDE || '-46.6333'),
-    zoom: parseInt(process.env.DEFAULT_ZOOM || '15'),
-  },
-  
-  // Limitador de requisições (rate limiting)
-  rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '900000'), // 15 min
-    max: parseInt(process.env.RATE_LIMIT_MAX || '100'),
-  }
 };
