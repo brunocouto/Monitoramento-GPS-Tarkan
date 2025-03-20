@@ -1,123 +1,203 @@
-# Guia de Instalação do Sistema de Monitoramento GPS Tarkan
+# Guia de Instalação - Sistema de Monitoramento GPS Tarkan
 
-Este guia fornece instruções detalhadas para instalar e configurar o sistema de monitoramento GPS Tarkan.
+Este guia fornece instruções detalhadas para instalar e configurar o Sistema de Monitoramento GPS Tarkan em diferentes ambientes.
 
-## Pré-requisitos
+## Requisitos de Sistema
 
-- Docker e Docker Compose instalados e funcionando
-- Servidor com pelo menos 2GB de RAM e 1 CPU
-- Acesso de administrador ao sistema operacional
-- Sistema Tarkan base já instalado
+### Hardware Recomendado
+- CPU: 2 cores ou mais
+- RAM: 4GB ou mais
+- Armazenamento: 20GB ou mais
 
-## Passos para Instalação
+### Software Necessário
+- Sistema Operacional: Windows 10/11, Ubuntu 20.04+ ou similares
+- Node.js 14.x ou superior
+- MySQL 8.0 ou superior
+- Docker (opcional, para implantação containerizada)
 
-### 1. Obter o Código Fonte
+## Instalação Direta (Sem Docker)
 
-Clone este repositório:
+### 1. Configurar o Banco de Dados MySQL
+
+```sql
+CREATE DATABASE traccar_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'traccar_user'@'localhost' IDENTIFIED BY 'senha_segura';
+GRANT ALL PRIVILEGES ON traccar_db.* TO 'traccar_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+### 2. Clonar o Repositório
 
 ```bash
 git clone https://github.com/brunocouto/Monitoramento-GPS-Tarkan.git
+cd Monitoramento-GPS-Tarkan
 ```
 
-Ou baixe como arquivo ZIP e extraia em seu servidor.
-
-### 2. Configuração do Ambiente
-
-#### 2.1 Estrutura de Diretórios
-
-Organize os arquivos nas seguintes pastas:
-
-```
-└── frontend/
-    └── public/
-        ├── js/
-        │   ├── firebase-config.js
-        │   ├── positions-fix.js
-        │   ├── auth-fix.js
-        │   └── fix-paths.js
-        ├── css/
-        │   └── app-fixes.css
-        └── index.html (substitua pelo nosso index-template.html)
-```
-
-#### 2.2 Copiar Arquivos
-
-Copie os arquivos para as pastas corretas na sua instalação do Tarkan:
-
-- Arquivos JavaScript (`.js`) para a pasta `frontend/public/js/`
-- Arquivos CSS para a pasta `frontend/public/css/`
-- Renomeie `index-template.html` para `index.html` e coloque-o em `frontend/public/`
-- Coloque o script `restart-nginx.bat` na raiz do projeto
-
-### 3. Iniciar o Sistema
-
-Execute o script `restart-nginx.bat` para reiniciar o servidor Nginx e limpar os caches:
+### 3. Configurar o Backend
 
 ```bash
-./restart-nginx.bat
+cd backend
+cp .env.example .env
+# Edite o arquivo .env com suas configurações
+npm install
 ```
 
-### 4. Verificação da Instalação
+### 4. Configurar o Frontend
 
-1. Abra seu navegador e acesse `http://localhost` (ou o endereço configurado para seu servidor)
-2. Limpe o cache do navegador:
-   - Chrome/Edge: `Ctrl+F5`
-   - Firefox: `Ctrl+Shift+R`
-   - Safari: `Cmd+Option+R`
-3. Verifique no console do navegador (F12) se os erros foram corrigidos
+```bash
+cd ../frontend
+npm install
+```
+
+### 5. Iniciar os Serviços
+
+```bash
+# Iniciar o Backend
+cd backend
+npm start
+
+# Em outro terminal, iniciar o Frontend
+cd frontend
+npm run serve
+```
+
+O sistema estará disponível em `http://localhost:8080`.
+
+## Instalação com Docker
+
+### 1. Clonar o Repositório
+
+```bash
+git clone https://github.com/brunocouto/Monitoramento-GPS-Tarkan.git
+cd Monitoramento-GPS-Tarkan
+```
+
+### 2. Configurar Variáveis de Ambiente
+
+```bash
+cp backend/.env.example backend/.env
+# Edite o arquivo .env conforme necessário
+```
+
+### 3. Iniciar com Docker Compose
+
+```bash
+docker-compose up -d
+```
+
+O sistema estará disponível em `http://localhost:80`.
+
+## Configuração do Traccar
+
+O Sistema de Monitoramento GPS Tarkan pode ser integrado ao Traccar, um servidor de rastreamento de código aberto.
+
+### 1. Instalação do Traccar
+
+Baixe o instalador do Traccar do site oficial: `https://www.traccar.org/download/`
+
+### 2. Configuração
+
+Após a instalação, configure o arquivo de configuração do Traccar:
+
+```bash
+cd traccar/conf
+nano traccar.xml
+```
+
+Adicione as seguintes configurações:
+
+```xml
+<entry key='database.driver'>com.mysql.jdbc.Driver</entry>
+<entry key='database.url'>jdbc:mysql://localhost:3306/traccar_db?serverTimezone=UTC&amp;useSSL=false&amp;allowMultiQueries=true</entry>
+<entry key='database.user'>traccar_user</entry>
+<entry key='database.password'>senha_segura</entry>
+
+<entry key='web.enable'>true</entry>
+<entry key='web.port'>8082</entry>
+<entry key='web.path'>./web</entry>
+```
+
+### 3. Iniciar o Traccar
+
+No Windows:
+```
+cd traccar
+traccar.exe
+```
+
+No Linux:
+```bash
+cd traccar
+./traccar.sh
+```
+
+O servidor Traccar estará disponível em `http://localhost:8082`.
+
+## Atualizando o Sistema
+
+### Atualização sem Docker
+
+```bash
+cd Monitoramento-GPS-Tarkan
+git pull
+
+# Atualizar Backend
+cd backend
+npm install
+npm run migrate
+
+# Atualizar Frontend
+cd ../frontend
+npm install
+npm run build
+```
+
+### Atualização com Docker
+
+```bash
+cd Monitoramento-GPS-Tarkan
+git pull
+docker-compose down
+docker-compose build
+docker-compose up -d
+```
 
 ## Configurações Avançadas
 
-### Personalização do Sistema
+### Configuração HTTPS
 
-Para personalizar o sistema, você pode modificar:
+Para configurar HTTPS, você precisará gerar certificados SSL e atualizar a configuração do Nginx.
 
-- Logotipos e imagens na pasta `frontend/public/img/`
-- Cores e estilos no arquivo `frontend/public/css/app-fixes.css`
+### Balanceamento de Carga
 
-### Configuração do Firebase
+Para instalações com alta carga, considere utilizar um balanceador de carga como Nginx ou HAProxy.
 
-Se você utiliza o Firebase, certifique-se de descomentar os módulos necessários no arquivo `firebase-config.js`.
+### Backup e Recuperação
+
+Recomendamos configurar backups regulares do banco de dados:
+
+```bash
+# Backup
+mysqldump -u traccar_user -p traccar_db > backup.sql
+
+# Restauração
+mysql -u traccar_user -p traccar_db < backup.sql
+```
 
 ## Solução de Problemas
 
-### Erros Comuns
+### Problemas Comuns
 
-#### O mapa não carrega:
-- Verifique as chaves de API do Google Maps no arquivo `config.js`
-- Certifique-se de que o navegador tem permissão para acessar sua localização
+1. **Falha de Conexão com Banco de Dados**
+   - Verifique as credenciais no arquivo .env
+   - Certifique-se de que o serviço MySQL está em execução
 
-#### Erro de conexão com o servidor:
-- Verifique se o Docker está em execução
-- Verifique se a porta 80 não está sendo usada por outro aplicativo
+2. **Problemas com Porta em Uso**
+   - Verifique se as portas 3000 (backend) e 8080 (frontend) estão disponíveis
+   - Altere as portas no arquivo de configuração se necessário
 
-### Logs para Diagnóstico
+3. **Erros no Frontend**
+   - Limpe o cache do navegador
+   - Verifique os logs em `/frontend/logs`
 
-Para verificar logs do Nginx:
-
-```bash
-docker-compose logs nginx
-```
-
-Para verificar logs da aplicação:
-
-```bash
-docker-compose logs app
-```
-
-## Suporte
-
-Se encontrar problemas, abra uma issue no GitHub com:
-
-- Descrição detalhada do problema
-- Capturas de tela dos erros 
-- Informações sobre seu ambiente (SO, navegador, versões)
-
-## Atualização do Sistema
-
-Para atualizar o sistema para versões mais recentes:
-
-1. Faça backup dos seus dados
-2. Clone a versão mais recente do repositório
-3. Siga as instruções de instalação acima
-4. Restaure seus dados de backup se necessário
+Para suporte adicional, consulte a documentação completa ou abra uma issue no repositório GitHub.
