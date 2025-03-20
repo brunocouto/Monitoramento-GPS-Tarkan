@@ -1,45 +1,81 @@
-/**
- * Sistema de Monitoramento GPS Tarkan
- * Modelo de Usuário
- */
-
 const { DataTypes, Model } = require('sequelize');
+const sequelize = require('../config/database');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const sequelize = require('../config/database');
+const config = require('../config/config');
 
 class User extends Model {
-  // Método para comparar senha
+  /**
+   * Compara a senha fornecida com a senha hash armazenada
+   * @param {string} password - Senha a ser verificada
+   * @returns {Promise<boolean>} - Verdadeiro se a senha corresponder
+   */
   async comparePassword(password) {
-    return await bcrypt.compare(password, this.password);
+    return bcrypt.compare(password, this.password);
   }
 
-  // Método para gerar token JWT
+  /**
+   * Gera um token JWT para o usuário
+   * @returns {string} - Token JWT
+   */
   generateAuthToken() {
     const token = jwt.sign(
-      { 
-        id: this.id,
-        email: this.email,
-        role: this.role
-      }, 
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      { id: this.id, email: this.email, role: this.role },
+      config.jwt.secret,
+      { expiresIn: config.jwt.expiresIn }
     );
-    
     return token;
   }
 
-  // Método para verificar se usuário tem uma determinada permissão
-  hasPermission(permission) {
-    // Admins têm todas as permissões
+  /**
+   * Verifica se o usuário tem permissão para acessar um dispositivo
+   * @param {number} deviceId - ID do dispositivo
+   * @returns {Promise<boolean>} - Verdadeiro se tiver permissão
+   */
+  async hasDeviceAccess(deviceId) {
+    // Se for administrador, tem acesso a todos os dispositivos
     if (this.role === 'admin') return true;
-    
-    // Gerentes têm a maioria das permissões
-    if (this.role === 'manager' && permission !== 'admin') return true;
-    
-    // Verificar permissões específicas
-    const userPermissions = this.attributes.permissions || {};
-    return userPermissions[permission] === true;
+
+    // Verificar se o dispositivo pertence ao usuário
+    const device = await sequelize.models.Device.findOne({
+      where: { id: deviceId, userId: this.id }
+    });
+
+    return !!device;
+  }
+
+  /**
+   * Verifica se o usuário tem permissão para acessar um recurso
+   * @param {string} resource - Recurso a ser acessado
+   * @param {string} action - Ação a ser executada (read, write, delete)
+   * @returns {boolean} - Verdadeiro se tiver permissão
+   */
+  hasPermission(resource, action) {
+    // Administradores têm todas as permissões
+    if (this.role === 'admin') return true;
+
+    // Implementar lógica de permissões baseada em papéis e recursos
+    const permissions = {
+      user: {
+        'devices': ['read', 'write'],
+        'positions': ['read'],
+        'geofences': ['read', 'write'],
+        'reports': ['read'],
+        'alerts': ['read', 'write']
+      },
+      manager: {
+        'devices': ['read', 'write', 'delete'],
+        'positions': ['read'],
+        'geofences': ['read', 'write', 'delete'],
+        'reports': ['read', 'write'],
+        'alerts': ['read', 'write', 'delete'],
+        'users': ['read']
+      }
+    };
+
+    if (!permissions[this.role]) return false;
+    if (!permissions[this.role][resource]) return false;
+    return permissions[this.role][resource].includes(action);
   }
 }
 
@@ -49,13 +85,12 @@ User.init({
     primaryKey: true,
     autoIncrement: true
   },
-  // Informações básicas
   name: {
-    type: DataTypes.STRING(128),
+    type: DataTypes.STRING,
     allowNull: false
   },
   email: {
-    type: DataTypes.STRING(128),
+    type: DataTypes.STRING,
     allowNull: false,
     unique: true,
     validate: {
@@ -63,57 +98,69 @@ User.init({
     }
   },
   password: {
-    type: DataTypes.STRING(128),
+    type: DataTypes.STRING,
     allowNull: false
   },
-  phone: {
-    type: DataTypes.STRING(128),
-    allowNull: true
-  },
   role: {
-    type: DataTypes.ENUM('admin', 'manager', 'user', 'driver', 'readonly'),
+    type: DataTypes.ENUM('admin', 'manager', 'user'),
+    allowNull: false,
     defaultValue: 'user'
   },
-  // Status da conta
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   disabled: {
     type: DataTypes.BOOLEAN,
+    allowNull: false,
     defaultValue: false
   },
   expirationTime: {
     type: DataTypes.DATE,
     allowNull: true
   },
-  // Registro de atividade
+  token: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  tokenExpiration: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  attributes: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('attributes');
+      return value ? JSON.parse(value) : {};
+    },
+    set(value) {
+      this.setDataValue('attributes', JSON.stringify(value || {}));
+    }
+  },
+  notificationTokens: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('notificationTokens');
+      return value ? JSON.parse(value) : [];
+    },
+    set(value) {
+      this.setDataValue('notificationTokens', JSON.stringify(value || []));
+    }
+  },
   lastLogin: {
     type: DataTypes.DATE,
     allowNull: true
   },
-  loginFailures: {
+  loginAttempts: {
     type: DataTypes.INTEGER,
+    allowNull: false,
     defaultValue: 0
   },
-  // Token para recuperação de senha
-  resetToken: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  resetTokenExpires: {
+  lockUntil: {
     type: DataTypes.DATE,
     allowNull: true
-  },
-  // Preferências e configurações
-  timezone: {
-    type: DataTypes.STRING(128),
-    defaultValue: 'America/Sao_Paulo'
-  },
-  language: {
-    type: DataTypes.STRING(10),
-    defaultValue: 'pt-BR'
-  },
-  // Atributos extras em formato JSON (incluindo permissões)
-  attributes: {
-    type: DataTypes.JSON,
-    defaultValue: {}
   }
 }, {
   sequelize,
@@ -122,45 +169,25 @@ User.init({
   timestamps: true,
   indexes: [
     {
-      fields: ['email'],
-      unique: true
+      unique: true,
+      fields: ['email']
     },
     {
       fields: ['role']
     }
   ],
   hooks: {
-    // Hash de senha antes de salvar
     beforeCreate: async (user) => {
       if (user.password) {
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(user.password, salt);
+        user.password = await bcrypt.hash(user.password, 10);
       }
     },
     beforeUpdate: async (user) => {
       if (user.changed('password')) {
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(user.password, salt);
+        user.password = await bcrypt.hash(user.password, 10);
       }
     }
   }
 });
-
-// Métodos estáticos
-User.findByEmail = function(email) {
-  return this.findOne({ where: { email } });
-};
-
-// Excluir dados sensíveis ao converter para JSON
-User.prototype.toJSON = function() {
-  const values = Object.assign({}, this.get());
-  
-  // Remover campos sensíveis
-  delete values.password;
-  delete values.resetToken;
-  delete values.resetTokenExpires;
-  
-  return values;
-};
 
 module.exports = User;

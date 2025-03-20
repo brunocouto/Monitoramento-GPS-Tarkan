@@ -1,88 +1,106 @@
-/**
- * Sistema de Monitoramento GPS Tarkan
- * Modelo de Geocerca
- */
-
 const { DataTypes, Model } = require('sequelize');
 const sequelize = require('../config/database');
-const User = require('./User');
-const geolib = require('geolib');
 
 class Geofence extends Model {
-  // Método para verificar se uma posição está dentro da geocerca
+  /**
+   * Verifica se uma posição está dentro desta geocerca
+   * @param {Position} position - Posição para verificar
+   * @returns {boolean} - Verdadeiro se a posição está dentro da geocerca
+   */
   containsPosition(position) {
-    const { latitude, longitude } = position;
-    
-    if (!latitude || !longitude) {
-      return false;
-    }
-    
-    // Verificar com base no tipo de geocerca
     if (this.type === 'circle') {
-      const areaData = JSON.parse(this.area);
-      // Verificar se o ponto está dentro do círculo
-      return geolib.isPointWithinRadius(
-        { latitude, longitude },
-        { latitude: areaData.centerLatitude, longitude: areaData.centerLongitude },
-        areaData.radius
-      );
-    } 
-    else if (this.type === 'polygon') {
-      const areaData = JSON.parse(this.area);
-      // Verificar se o ponto está dentro do polígono
-      return geolib.isPointInPolygon(
-        { latitude, longitude },
-        areaData.points.map(p => ({ latitude: p[0], longitude: p[1] }))
-      );
-    }
-    else if (this.type === 'rectangle') {
-      const areaData = JSON.parse(this.area);
-      // Verificar se o ponto está dentro do retângulo
-      return geolib.isPointInside(
-        { latitude, longitude },
-        [
-          { latitude: areaData.minLatitude, longitude: areaData.minLongitude },
-          { latitude: areaData.minLatitude, longitude: areaData.maxLongitude },
-          { latitude: areaData.maxLatitude, longitude: areaData.maxLongitude },
-          { latitude: areaData.maxLatitude, longitude: areaData.minLongitude }
-        ]
-      );
+      // Para geocerca circular
+      const center = {
+        latitude: this.latitude,
+        longitude: this.longitude
+      };
+      
+      const R = 6371000; // Raio da Terra em metros
+      const lat1 = center.latitude * Math.PI / 180;
+      const lat2 = position.latitude * Math.PI / 180;
+      const deltaLat = (position.latitude - center.latitude) * Math.PI / 180;
+      const deltaLon = (position.longitude - center.longitude) * Math.PI / 180;
+
+      const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+                Math.cos(lat1) * Math.cos(lat2) *
+                Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
+
+      return distance <= this.radius;
+    } else if (this.type === 'polygon') {
+      // Para geocerca poligonal (usando o algoritmo de ponto em polígono)
+      const polygon = this.getPolygonPoints();
+      return this.pointInPolygon(position, polygon);
     }
     
     return false;
   }
-  
-  // Método para verificar se a geocerca está ativa no momento atual
-  isActiveNow() {
-    if (!this.active) return false;
+
+  /**
+   * Obtém os pontos do polígono a partir da string de área
+   * @returns {Array} - Array de pontos [latitude, longitude]
+   */
+  getPolygonPoints() {
+    if (!this.area || this.type !== 'polygon') return [];
+    try {
+      return JSON.parse(this.area);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
+   * Verifica se um ponto está dentro de um polígono usando o algoritmo ray casting
+   * @param {Object} point - Ponto a verificar {latitude, longitude}
+   * @param {Array} polygon - Array de pontos do polígono [[lat1, lon1], [lat2, lon2], ...]
+   * @returns {boolean} - Verdadeiro se o ponto está dentro do polígono
+   */
+  pointInPolygon(point, polygon) {
+    if (!polygon.length) return false;
     
-    // Se não tem programação, está sempre ativa
-    if (!this.attributes.schedule || !this.attributes.schedule.enabled) return true;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i][1], yi = polygon[i][0];
+      const xj = polygon[j][1], yj = polygon[j][0];
+      
+      const intersect = ((yi > point.latitude) !== (yj > point.latitude))
+          && (point.longitude < (xj - xi) * (point.latitude - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
     
-    const schedule = this.attributes.schedule;
+    return inside;
+  }
+
+  /**
+   * Verifica se a geocerca está ativa no momento atual
+   * @returns {boolean} - Verdadeiro se a geocerca está ativa
+   */
+  isActive() {
+    if (!this.startTime && !this.endTime) return true;
     
-    // Data e hora atual
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+    const time = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
     
-    // Verificar se o dia atual está configurado
-    if (!schedule.days.includes(dayOfWeek)) return false;
+    let start = 0;
+    let end = 86400; // 24 horas em segundos
     
-    // Hora e minuto atuais
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeMinutes = currentHour * 60 + currentMinute;
+    if (this.startTime) {
+      const parts = this.startTime.split(':');
+      start = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60;
+    }
     
-    // Verificar se a hora atual está dentro de algum período configurado
-    return schedule.times.some(period => {
-      const [startHour, startMinute] = period.start.split(':').map(Number);
-      const [endHour, endMinute] = period.end.split(':').map(Number);
-      
-      const startTimeMinutes = startHour * 60 + startMinute;
-      const endTimeMinutes = endHour * 60 + endMinute;
-      
-      return currentTimeMinutes >= startTimeMinutes && currentTimeMinutes <= endTimeMinutes;
-    });
+    if (this.endTime) {
+      const parts = this.endTime.split(':');
+      end = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60;
+    }
+    
+    if (start <= end) {
+      return time >= start && time <= end;
+    } else {
+      // Para intervalos que cruzam a meia-noite
+      return time >= start || time <= end;
+    }
   }
 }
 
@@ -92,81 +110,94 @@ Geofence.init({
     primaryKey: true,
     autoIncrement: true
   },
-  // Informações básicas
   name: {
-    type: DataTypes.STRING(128),
+    type: DataTypes.STRING,
     allowNull: false
   },
   description: {
-    type: DataTypes.STRING(512),
+    type: DataTypes.TEXT,
     allowNull: true
   },
-  // Proprietário da geocerca
   userId: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
       model: 'users',
       key: 'id'
-    },
-    index: true
-  },
-  // Tipo de geocerca
-  type: {
-    type: DataTypes.ENUM('circle', 'polygon', 'rectangle'),
-    allowNull: false
-  },
-  // Área da geocerca (formato JSON)
-  area: {
-    type: DataTypes.TEXT,
-    allowNull: false,
-    get() {
-      const value = this.getDataValue('area');
-      return value ? JSON.parse(value) : null;
-    },
-    set(value) {
-      this.setDataValue('area', JSON.stringify(value));
     }
   },
-  // Cor para exibição no mapa
+  type: {
+    type: DataTypes.ENUM('polygon', 'circle', 'linestring'),
+    allowNull: false,
+    defaultValue: 'circle'
+  },
+  area: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'JSON array de pontos para polígono ou linestring'
+  },
+  latitude: {
+    type: DataTypes.DOUBLE,
+    allowNull: true,
+    comment: 'Centro do círculo'
+  },
+  longitude: {
+    type: DataTypes.DOUBLE,
+    allowNull: true,
+    comment: 'Centro do círculo'
+  },
+  radius: {
+    type: DataTypes.DOUBLE,
+    allowNull: true,
+    comment: 'Raio do círculo em metros'
+  },
   color: {
-    type: DataTypes.STRING(7),
-    defaultValue: '#FF0000' // Vermelho padrão
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: '#FF0000'
   },
-  // Se a geocerca está ativa ou não
-  active: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true
+  startTime: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Hora de início no formato HH:MM'
   },
-  // Atributos adicionais (incluindo programação) em formato JSON
+  endTime: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Hora de fim no formato HH:MM'
+  },
   attributes: {
-    type: DataTypes.JSON,
-    defaultValue: {}
+    type: DataTypes.TEXT,
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('attributes');
+      return value ? JSON.parse(value) : {};
+    },
+    set(value) {
+      this.setDataValue('attributes', JSON.stringify(value || {}));
+    }
   },
-  // Contador de eventos
   calendarId: {
     type: DataTypes.INTEGER,
-    allowNull: true
+    allowNull: true,
+    references: {
+      model: 'calendars',
+      key: 'id'
+    }
   }
 }, {
   sequelize,
   modelName: 'Geofence',
   tableName: 'geofences',
+  timestamps: true,
   indexes: [
     {
-      fields: ['userId', 'active']
+      fields: ['userId']
     },
     {
-      fields: ['name']
+      fields: ['calendarId']
     }
-  ],
-  timestamps: true
+  ]
 });
-
-// Associações
-Geofence.belongsTo(User, { foreignKey: 'userId' });
-
-// Associação muitos-para-muitos com dispositivos (a ser definida após a criação do modelo GeofenceDevice)
-// Geofence.belongsToMany(Device, { through: 'GeofenceDevice', foreignKey: 'geofenceId' });
 
 module.exports = Geofence;

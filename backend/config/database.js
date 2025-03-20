@@ -1,64 +1,54 @@
-/**
- * Sistema de Monitoramento GPS Tarkan
- * Configuração de conexão com o banco de dados MySQL
- */
-
 const { Sequelize } = require('sequelize');
 const config = require('./config');
+const logger = require('../utils/logger');
 
-// Configuração do Sequelize para MySQL
-const sequelize = new Sequelize(
-  config.database.name,
-  config.database.user,
-  config.database.password,
-  {
-    host: config.database.host,
-    port: config.database.port,
-    dialect: 'mysql',
-    logging: config.database.logging ? console.log : false,
-    timezone: config.timezone || '+00:00', // UTC por padrão
-    define: {
-      timestamps: true, // Habilitar campos createdAt e updatedAt
-      underscored: true, // Usar snake_case para nomes de colunas
-      charset: 'utf8mb4',
-      collate: 'utf8mb4_unicode_ci'
-    },
-    pool: {
-      max: 10, // Máximo de conexões
-      min: 0, // Mínimo de conexões
-      acquire: 30000, // Tempo máximo para obter conexão (ms)
-      idle: 10000 // Tempo máximo que uma conexão pode ficar inativa (ms)
-    }
+// Configuração do sequelize com os dados do config.js
+const sequelize = new Sequelize({
+  host: config.database.host,
+  port: config.database.port,
+  database: config.database.database,
+  username: config.database.username,
+  password: config.database.password,
+  dialect: config.database.dialect,
+  logging: config.database.logging,
+  timezone: config.database.timezone,
+  pool: config.database.pool,
+  define: {
+    charset: 'utf8mb4',
+    collate: 'utf8mb4_unicode_ci',
+    timestamps: true
   }
-);
+});
 
-// Função para testar conexão com banco de dados
-const testConnection = async () => {
+/**
+ * Testa a conexão com o banco de dados
+ * @returns {Promise<boolean>} - Verdadeiro se a conexão for bem-sucedida
+ */
+async function testConnection() {
   try {
     await sequelize.authenticate();
-    console.log('Conexão com o banco de dados estabelecida com sucesso.');
+    logger.info('Conexão com o banco de dados estabelecida com sucesso.');
     return true;
   } catch (error) {
-    console.error('Erro ao conectar com o banco de dados:', error);
+    logger.error(`Erro ao conectar ao banco de dados: ${error.message}`);
     return false;
   }
-};
+}
 
-// Função para sincronizar modelos com o banco de dados
-const syncModels = async () => {
+/**
+ * Sincroniza os modelos com o banco de dados
+ * @param {boolean} force - Se verdadeiro, força a recriação das tabelas
+ * @returns {Promise<void>}
+ */
+async function syncModels(force = false) {
   try {
-    if (config.database.sync) {
-      // Em ambiente de produção, force: true é perigoso (apaga dados existentes)
-      const force = config.env === 'development' && config.database.forceSync;
-      
-      await sequelize.sync({ force });
-      console.log(`Modelos sincronizados ${force ? '(recriando tabelas)' : ''}`);
-    }
+    await sequelize.sync({ force });
+    logger.info(`Modelos sincronizados ${force ? '(forçado)' : ''}`);
   } catch (error) {
-    console.error('Erro ao sincronizar modelos:', error);
+    logger.error(`Erro ao sincronizar modelos: ${error.message}`);
     throw error;
   }
-};
+}
 
 module.exports = sequelize;
 module.exports.testConnection = testConnection;

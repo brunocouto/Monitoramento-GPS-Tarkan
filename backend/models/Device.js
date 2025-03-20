@@ -1,24 +1,58 @@
-/**
- * Sistema de Monitoramento GPS Tarkan
- * Modelo de Dispositivo (rastreador/veículo)
- */
-
 const { DataTypes, Model } = require('sequelize');
 const sequelize = require('../config/database');
-const User = require('./User');
 
 class Device extends Model {
-  // Método para checar se o dispositivo está online
-  isOnline() {
-    if (!this.lastUpdate) return false;
-    const offlineThreshold = 5 * 60 * 1000; // 5 minutos
-    return (new Date() - new Date(this.lastUpdate)) < offlineThreshold;
+  /**
+   * Verifica o status atual do dispositivo com base na última atualização
+   * @returns {string} - Status do dispositivo ('online', 'offline' ou 'unknown')
+   */
+  getStatus() {
+    if (!this.lastUpdate) return 'unknown';
+
+    const now = new Date();
+    const lastUpdate = new Date(this.lastUpdate);
+    const diffMinutes = (now - lastUpdate) / (1000 * 60);
+
+    // Se a última atualização foi há menos de 5 minutos, consideramos online
+    if (diffMinutes <= 5) return 'online';
+    
+    // Se a última atualização foi há mais de 6 horas, consideramos unknown
+    if (diffMinutes > 360) return 'unknown';
+    
+    // Caso contrário, offline
+    return 'offline';
   }
 
-  // Método para calcular tempo de inatividade
-  getInactiveTime() {
-    if (!this.lastUpdate) return null;
-    return new Date() - new Date(this.lastUpdate);
+  /**
+   * Calcula o tempo (em horas) desde a última manutenção
+   * @returns {number} - Horas desde a última manutenção
+   */
+  getHoursSinceLastMaintenance() {
+    if (!this.lastMaintenance) return null;
+
+    const now = new Date();
+    const lastMaintenance = new Date(this.lastMaintenance);
+    return (now - lastMaintenance) / (1000 * 60 * 60);
+  }
+
+  /**
+   * Verifica se o dispositivo precisa de manutenção
+   * @param {number} maintenanceInterval - Intervalo de manutenção em horas
+   * @returns {boolean} - Verdadeiro se precisa de manutenção
+   */
+  needsMaintenance(maintenanceInterval = 5000) {
+    const hoursSinceLastMaintenance = this.getHoursSinceLastMaintenance();
+    if (hoursSinceLastMaintenance === null) return true;
+    return hoursSinceLastMaintenance >= maintenanceInterval;
+  }
+
+  /**
+   * Verifica se o modelo do dispositivo é suportado
+   * @param {Array<string>} supportedModels - Lista de modelos suportados
+   * @returns {boolean} - Verdadeiro se o modelo é suportado
+   */
+  isModelSupported(supportedModels = []) {
+    return supportedModels.includes(this.model);
   }
 }
 
@@ -28,155 +62,93 @@ Device.init({
     primaryKey: true,
     autoIncrement: true
   },
-  // Informações básicas do dispositivo
   name: {
-    type: DataTypes.STRING(128),
+    type: DataTypes.STRING,
     allowNull: false
   },
   uniqueId: {
-    type: DataTypes.STRING(128),
+    type: DataTypes.STRING,
     allowNull: false,
     unique: true
   },
-  // Proprietário do dispositivo
+  model: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   userId: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
       model: 'users',
       key: 'id'
-    },
-    index: true
+    }
   },
-  // Tipo de dispositivo/veículo
-  category: {
-    type: DataTypes.STRING(128),
-    defaultValue: 'default'
-  },
-  // Status e posição
   status: {
-    type: DataTypes.ENUM('online', 'offline', 'unknown', 'inactive'),
+    type: DataTypes.ENUM('online', 'offline', 'unknown'),
+    allowNull: false,
     defaultValue: 'unknown'
   },
   lastUpdate: {
     type: DataTypes.DATE,
     allowNull: true
   },
-  lastPositionId: {
+  lastPosition: {
     type: DataTypes.INTEGER,
-    allowNull: true
-  },
-  // Última posição conhecida
-  latitude: {
-    type: DataTypes.DOUBLE,
-    allowNull: true
-  },
-  longitude: {
-    type: DataTypes.DOUBLE,
-    allowNull: true
-  },
-  course: {
-    type: DataTypes.FLOAT,
-    allowNull: true
-  },
-  speed: {
-    type: DataTypes.FLOAT,
-    allowNull: true
-  },
-  // Informações do veículo
-  model: {
-    type: DataTypes.STRING(128),
-    allowNull: true
-  },
-  contact: {
-    type: DataTypes.STRING(128),
-    allowNull: true
+    allowNull: true,
+    references: {
+      model: 'positions',
+      key: 'id'
+    }
   },
   phone: {
-    type: DataTypes.STRING(128),
+    type: DataTypes.STRING,
     allowNull: true
   },
-  plate: {
-    type: DataTypes.STRING(20),
+  category: {
+    type: DataTypes.STRING,
     allowNull: true
   },
-  color: {
-    type: DataTypes.STRING(128),
-    allowNull: true
-  },
-  // Configurações
   disabled: {
     type: DataTypes.BOOLEAN,
+    allowNull: false,
     defaultValue: false
   },
-  speedLimit: {
-    type: DataTypes.FLOAT,
-    defaultValue: 0
-  },
-  // Atributos extras em formato JSON
   attributes: {
-    type: DataTypes.JSON,
-    defaultValue: {}
-  },
-  // Campos para manutenção
-  maintenanceInterval: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0  // em km, 0 = desativado
-  },
-  totalDistance: {
-    type: DataTypes.FLOAT,
-    defaultValue: 0
-  },
-  hours: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0
+    type: DataTypes.TEXT,
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('attributes');
+      return value ? JSON.parse(value) : {};
+    },
+    set(value) {
+      this.setDataValue('attributes', JSON.stringify(value || {}));
+    }
   },
   lastMaintenance: {
     type: DataTypes.DATE,
+    allowNull: true
+  },
+  traccarId: {
+    type: DataTypes.INTEGER,
     allowNull: true
   }
 }, {
   sequelize,
   modelName: 'Device',
   tableName: 'devices',
+  timestamps: true,
   indexes: [
     {
-      fields: ['userId', 'name']
+      unique: true,
+      fields: ['uniqueId']
     },
     {
-      fields: ['uniqueId'],
-      unique: true
+      fields: ['userId']
     },
     {
       fields: ['status']
-    },
-    {
-      fields: ['lastUpdate']
     }
-  ],
-  timestamps: true
+  ]
 });
-
-// Associações
-Device.belongsTo(User, { foreignKey: 'userId' });
-
-// Métodos estáticos
-Device.findByStatus = async function(status, userId = null) {
-  const query = { status };
-  if (userId) query.userId = userId;
-  return this.findAll({ where: query });
-};
-
-// Verificar manutenção pendente
-Device.prototype.checkMaintenanceDue = function() {
-  if (!this.maintenanceInterval || this.maintenanceInterval <= 0) return false;
-  if (!this.lastMaintenance) return true;
-  
-  // Verificar se a distância percorrida desde a última manutenção excede o intervalo
-  const lastMaintenanceDate = new Date(this.lastMaintenance);
-  const distanceSinceLastMaintenance = this.totalDistance - (this.attributes.maintenanceOdometer || 0);
-  
-  return distanceSinceLastMaintenance >= this.maintenanceInterval;
-};
 
 module.exports = Device;
