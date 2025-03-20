@@ -1,0 +1,81 @@
+/* Estilos do Sistema de Monitoramento GPS Tarkan */
+
+/* Otimização de imagens de fundo */
+.login[data-v-10b92f17] {
+    background-image: url('/img/bg.jpg') !important;
+    background-size: cover !important;
+    background-position: center !important;
+}
+
+/* Melhoria no z-index para componentes da interface */
+.modal-content {
+    z-index: 9999 !important;
+}
+
+/* Correção para layout responsivo e mobile */
+#app {
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Otimizações para dispositivos móveis */
+@media (max-width: 768px) {
+    .nav-container {
+        width: 100% !important;
+    }
+    
+    .map-control-buttons {
+        transform: scale(0.85);
+        transform-origin: bottom right;
+    }
+    
+    /* Ajustes para telas pequenas */
+    .sidebar-container {
+        width: 280px !important;
+    }
+    
+    .vehicle-list-item {
+        padding: 8px !important;
+    }
+}
+
+/* Melhorias na velocidade de animações */
+.fade-transition,
+.slide-transition {
+    transition-duration: 0.2s !important;
+}
+
+/* Tema corporativo e elementos visuais */
+:root {
+    --primary-color: #0066cc;
+    --secondary-color: #00aaff;
+    --accent-color: #ff6600;
+    --text-color: #333333;
+    --background-color: #f8f9fa;
+}
+
+.btn-primary {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color) !important;
+    border-color: var(--secondary-color) !important;
+}
+
+/* Melhorias nos mapas e controles */
+.map-container {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.vehicle-marker {
+    transition: transform 0.3s ease-out;
+}
+
+.vehicle-marker:hover {
+    transform: scale(1.2);
+    z-index: 2;
+}
