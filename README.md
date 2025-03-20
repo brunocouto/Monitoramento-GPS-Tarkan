@@ -1,57 +1,118 @@
-# Sistema de Monitoramento GPS com Tarkan
+# Sistema de Monitoramento GPS Tarkan
 
-Este repositório contém o código-fonte e as melhorias para o sistema de monitoramento GPS Tarkan, uma solução completa para rastreamento e gerenciamento de frotas.
+Este repositório contém o código-fonte para o Sistema de Monitoramento GPS Tarkan, uma plataforma completa de rastreamento em tempo real e gestão de frotas.
 
-## Recursos Principais
+## Funcionalidades
 
-- **Rastreamento em Tempo Real**: Acompanhe seus veículos em tempo real no mapa com atualizações contínuas
-- **Histórico de Rotas**: Visualize e analise rotas percorridas com detalhes completos
-- **Alertas Personalizados**: Configure alertas para excesso de velocidade, entrada/saída de zonas e muito mais
-- **Interface Responsiva**: Acesse o sistema de qualquer dispositivo, incluindo smartphones e tablets
-- **Relatórios Detalhados**: Exporte dados e gere relatórios completos sobre sua frota
+- **Rastreamento em Tempo Real**: Visualize a localização, velocidade e status de todos os dispositivos em tempo real.
+- **Histórico de Deslocamentos**: Acesse o histórico completo de posições com replay e análise de rotas.
+- **Geocercas**: Configure áreas geográficas para monitoramento e alertas automáticos.
+- **Alertas e Notificações**: Receba alertas sobre eventos importantes como entrada/saída de geocercas, excesso de velocidade, etc.
+- **Gestão de Dispositivos**: Cadastre e gerencie veículos, motoristas e dispositivos de rastreamento.
+- **Relatórios Avançados**: Gere relatórios detalhados sobre deslocamentos, paradas, tempo de operação, e mais.
+- **Painel Administrativo**: Interface administrativa para configuração do sistema e gestão de usuários.
 
-## Melhorias Implementadas
+## Arquitetura
 
-1. **Otimização do Firebase SDK**:
-   - Configuração eficiente do Firebase para reduzir o uso de recursos e melhorar o tempo de carregamento.
+O sistema é composto por:
 
-2. **Tratamento Avançado de Dados de Posição**:
-   - Implementação de algoritmos robustos para garantir o processamento correto dos dados de posicionamento.
+- **Frontend**: Interface web responsiva construída com Vue.js e otimizada para desempenho.
+- **Backend**: API RESTful construída com Node.js e Express.
+- **Banco de Dados**: MongoDB para armazenamento de dados.
+- **Cache**: Redis para cache e armazenamento de dados em tempo real.
+- **Servidor de Protocolos**: Para receber dados de diversos modelos de rastreadores.
 
-3. **Sistema de Autenticação Aprimorado**:
-   - Melhorias na segurança e no gerenciamento de usuários e permissões.
+## Estrutura do Repositório
 
-4. **Carregamento Otimizado de Recursos**:
-   - Implementação de técnicas de pré-carregamento e cache para melhorar a performance do sistema.
+```
+/
+├── backend/               # Servidor de API
+│   ├── api/               # Definições de rotas e middleware
+│   ├── controllers/       # Controladores para cada recurso
+│   ├── models/            # Modelos de dados
+│   ├── services/          # Serviços compartilhados
+│   └── utils/             # Utilitários
+├── frontend/              # Interface de usuário
+│   ├── public/            # Ativos públicos
+│   ├── src/               # Código fonte
+│   │   ├── components/    # Componentes reutilizáveis
+│   │   ├── views/         # Componentes de página
+│   │   ├── store/         # Estado centralizado (Vuex)
+│   │   ├── services/      # Serviços de API e utilitários
+│   │   └── assets/        # Imagens e estilos
+├── docs/                  # Documentação
+├── scripts/               # Scripts utilitários
+└── docker/                # Configurações de contêineres
+```
 
-## Requisitos Técnicos
+## Pré-requisitos
 
-- Docker e Docker Compose
-- Navegador moderno (Chrome, Firefox, Edge ou Safari)
-- Conexão estável com a internet
+- Node.js 14.x ou superior
+- MongoDB 4.4 ou superior
+- Redis 6.x ou superior
+- Docker e Docker Compose (opcional, para implantação containerizada)
 
 ## Instalação
 
-Veja o guia completo de instalação em [INSTALL.md](INSTALL.md).
+Consulte o arquivo [INSTALL.md](./INSTALL.md) para instruções detalhadas de instalação e configuração.
 
-## Arquitetura do Sistema
+## Desenvolvimento
 
-O sistema utiliza uma arquitetura moderna baseada em:
+1. Clone este repositório:
+```
+git clone https://github.com/brunocouto/Monitoramento-GPS-Tarkan.git
+cd Monitoramento-GPS-Tarkan
+```
 
-- Frontend Vue.js com Vuex para gerenciamento de estado
-- Serviços de backend otimizados para processamento de dados geoespaciais
-- Firebase para características de tempo real
-- Nginx como servidor web e proxy reverso
+2. Instale as dependências:
+```
+# Backend
+cd backend
+npm install
 
-## Documentação
+# Frontend
+cd frontend
+npm install
+```
 
-A documentação completa está disponível na pasta `docs` e inclui:
+3. Configure as variáveis de ambiente:
+```
+cp backend/.env.example backend/.env
+# Edite o arquivo .env com suas configurações
+```
 
-- Manual do usuário
-- Manual do administrador
-- Guia de desenvolvimento
-- API Reference
+4. Inicie os serviços em modo de desenvolvimento:
+```
+# Backend
+cd backend
+npm run dev
+
+# Frontend
+cd frontend
+npm run serve
+```
+
+## Implantação
+
+Para implantar em produção, recomendamos usar Docker:
+
+```
+docker-compose up -d
+```
+
+Consulte o arquivo [INSTALL.md](./INSTALL.md) para detalhes completos sobre implantação em produção.
 
 ## Licença
 
-Este projeto é licenciado sob os termos da licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](./LICENSE) para detalhes.
+
+## Suporte
+
+Para obter suporte, entre em contato:
+
+- Email: suporte@tarkan.com.br
+- Site: [https://tarkan.com.br](https://tarkan.com.br)
+
+---
+
+&copy; 2023-2025 Tarkan Sistemas de Rastreamento. Todos os direitos reservados.
