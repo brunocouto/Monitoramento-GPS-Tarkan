@@ -51,7 +51,7 @@ O servidor de protocolo suporta vários formatos de dispositivos GPS, incluindo:
 
 ## API REST
 
-A API segue princípios RESTful e está documentada usando Swagger/OpenAPI. Os principais endpoints incluem:
+A API segue princípios RESTful e os principais endpoints incluem:
 
 - `/api/v1/auth`: Autenticação e gestão de usuários
 - `/api/v1/devices`: Gerenciamento de dispositivos
@@ -119,10 +119,6 @@ LOG_FILE=logs/app.log
 - `npm run migrate`: Executa migrações do banco de dados
 - `npm test`: Executa testes
 - `npm run lint`: Verifica código com ESLint
-
-## Contribuindo
-
-Por favor, siga as diretrizes de código e processo de pull request descritos no arquivo CONTRIBUTING.md.
 
 ## Licença
 
