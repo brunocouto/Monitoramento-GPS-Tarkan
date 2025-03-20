@@ -3,422 +3,170 @@
  * Modelo de Geocerca
  */
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+const { DataTypes, Model } = require('sequelize');
+const sequelize = require('../config/database');
+const User = require('./User');
+const geolib = require('geolib');
 
-const GeofenceSchema = new Schema({
+class Geofence extends Model {
+  // Método para verificar se uma posição está dentro da geocerca
+  containsPosition(position) {
+    const { latitude, longitude } = position;
+    
+    if (!latitude || !longitude) {
+      return false;
+    }
+    
+    // Verificar com base no tipo de geocerca
+    if (this.type === 'circle') {
+      const areaData = JSON.parse(this.area);
+      // Verificar se o ponto está dentro do círculo
+      return geolib.isPointWithinRadius(
+        { latitude, longitude },
+        { latitude: areaData.centerLatitude, longitude: areaData.centerLongitude },
+        areaData.radius
+      );
+    } 
+    else if (this.type === 'polygon') {
+      const areaData = JSON.parse(this.area);
+      // Verificar se o ponto está dentro do polígono
+      return geolib.isPointInPolygon(
+        { latitude, longitude },
+        areaData.points.map(p => ({ latitude: p[0], longitude: p[1] }))
+      );
+    }
+    else if (this.type === 'rectangle') {
+      const areaData = JSON.parse(this.area);
+      // Verificar se o ponto está dentro do retângulo
+      return geolib.isPointInside(
+        { latitude, longitude },
+        [
+          { latitude: areaData.minLatitude, longitude: areaData.minLongitude },
+          { latitude: areaData.minLatitude, longitude: areaData.maxLongitude },
+          { latitude: areaData.maxLatitude, longitude: areaData.maxLongitude },
+          { latitude: areaData.maxLatitude, longitude: areaData.minLongitude }
+        ]
+      );
+    }
+    
+    return false;
+  }
+  
+  // Método para verificar se a geocerca está ativa no momento atual
+  isActiveNow() {
+    if (!this.active) return false;
+    
+    // Se não tem programação, está sempre ativa
+    if (!this.attributes.schedule || !this.attributes.schedule.enabled) return true;
+    
+    const schedule = this.attributes.schedule;
+    
+    // Data e hora atual
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+    
+    // Verificar se o dia atual está configurado
+    if (!schedule.days.includes(dayOfWeek)) return false;
+    
+    // Hora e minuto atuais
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTimeMinutes = currentHour * 60 + currentMinute;
+    
+    // Verificar se a hora atual está dentro de algum período configurado
+    return schedule.times.some(period => {
+      const [startHour, startMinute] = period.start.split(':').map(Number);
+      const [endHour, endMinute] = period.end.split(':').map(Number);
+      
+      const startTimeMinutes = startHour * 60 + startMinute;
+      const endTimeMinutes = endHour * 60 + endMinute;
+      
+      return currentTimeMinutes >= startTimeMinutes && currentTimeMinutes <= endTimeMinutes;
+    });
+  }
+}
+
+Geofence.init({
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   // Informações básicas
   name: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING(128),
+    allowNull: false
   },
   description: {
-    type: String,
-    trim: true
+    type: DataTypes.STRING(512),
+    allowNull: true
   },
   // Proprietário da geocerca
   userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
     index: true
   },
   // Tipo de geocerca
   type: {
-    type: String,
-    enum: ['circle', 'polygon', 'rectangle', 'route'],
-    required: true
+    type: DataTypes.ENUM('circle', 'polygon', 'rectangle'),
+    allowNull: false
   },
-  // Área da geocerca (dependendo do tipo)
+  // Área da geocerca (formato JSON)
   area: {
-    // Para tipo "circle"
-    circle: {
-      center: {
-        type: {
-          type: String,
-          enum: ['Point'],
-          default: 'Point'
-        },
-        coordinates: {
-          type: [Number], // [longitude, latitude]
-          index: '2dsphere'
-        }
-      },
-      radius: {
-        type: Number, // em metros
-        min: 10
-      }
+    type: DataTypes.TEXT,
+    allowNull: false,
+    get() {
+      const value = this.getDataValue('area');
+      return value ? JSON.parse(value) : null;
     },
-    // Para tipo "polygon" e "rectangle"
-    polygon: {
-      type: {
-        type: String,
-        enum: ['Polygon'],
-        default: 'Polygon'
-      },
-      coordinates: {
-        type: [[[Number]]], // Array de anéis, cada anel é um array de coordenadas [longitude, latitude]
-        index: '2dsphere'
-      }
-    },
-    // Para tipo "route"
-    route: {
-      type: {
-        type: String,
-        enum: ['LineString'],
-        default: 'LineString'
-      },
-      coordinates: {
-        type: [[Number]], // Array de coordenadas [longitude, latitude]
-        index: '2dsphere'
-      },
-      width: {
-        type: Number, // largura do corredor em metros
-        min: 10,
-        default: 100
-      }
+    set(value) {
+      this.setDataValue('area', JSON.stringify(value));
     }
   },
   // Cor para exibição no mapa
   color: {
-    type: String,
-    default: '#FF0000' // Vermelho padrão
-  },
-  // Dispositivos associados a esta geocerca
-  devices: [{
-    type: Schema.Types.ObjectId,
-    ref: 'Device'
-  }],
-  // Grupos associados a esta geocerca
-  groups: [{
-    type: Schema.Types.ObjectId,
-    ref: 'Group'
-  }],
-  // Programação de ativação
-  schedule: {
-    enabled: {
-      type: Boolean,
-      default: false
-    },
-    timezone: {
-      type: String,
-      default: 'America/Sao_Paulo'
-    },
-    // Dias da semana: 0 = Domingo, 1 = Segunda, etc.
-    days: {
-      type: [Number],
-      default: [0, 1, 2, 3, 4, 5, 6]
-    },
-    // Períodos de tempo para cada dia
-    times: [{
-      start: String, // formato HH:MM
-      end: String    // formato HH:MM
-    }]
-  },
-  // Configurações para alertas
-  alerts: {
-    onEnter: {
-      enabled: {
-        type: Boolean,
-        default: true
-      },
-      notifyUser: {
-        type: Boolean,
-        default: true
-      },
-      notifyEmail: {
-        type: Boolean,
-        default: false
-      },
-      emails: [String],
-      message: String,
-      webhookUrl: String
-    },
-    onExit: {
-      enabled: {
-        type: Boolean,
-        default: true
-      },
-      notifyUser: {
-        type: Boolean,
-        default: true
-      },
-      notifyEmail: {
-        type: Boolean,
-        default: false
-      },
-      emails: [String],
-      message: String,
-      webhookUrl: String
-    },
-    onDwell: {
-      enabled: {
-        type: Boolean,
-        default: false
-      },
-      timeThreshold: {
-        type: Number, // tempo em minutos
-        default: 10
-      },
-      notifyUser: {
-        type: Boolean,
-        default: true
-      },
-      notifyEmail: {
-        type: Boolean,
-        default: false
-      },
-      emails: [String],
-      message: String,
-      webhookUrl: String
-    },
-    speedLimit: {
-      enabled: {
-        type: Boolean,
-        default: false
-      },
-      maxSpeed: {
-        type: Number, // km/h
-        default: 80
-      },
-      notifyUser: {
-        type: Boolean,
-        default: true
-      },
-      notifyEmail: {
-        type: Boolean,
-        default: false
-      },
-      emails: [String],
-      message: String,
-      webhookUrl: String
-    }
-  },
-  // Campos adicionais
-  attributes: {
-    type: Map,
-    of: Schema.Types.Mixed,
-    default: {}
-  },
-  // Estatísticas de uso
-  stats: {
-    createdEvents: {
-      type: Number,
-      default: 0
-    },
-    lastEvent: Date
+    type: DataTypes.STRING(7),
+    defaultValue: '#FF0000' // Vermelho padrão
   },
   // Se a geocerca está ativa ou não
   active: {
-    type: Boolean,
-    default: true
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
-  // Metadados
-  meta: {
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    updatedBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'User'
-    }
+  // Atributos adicionais (incluindo programação) em formato JSON
+  attributes: {
+    type: DataTypes.JSON,
+    defaultValue: {}
+  },
+  // Contador de eventos
+  calendarId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
   }
 }, {
+  sequelize,
+  modelName: 'Geofence',
+  tableName: 'geofences',
+  indexes: [
+    {
+      fields: ['userId', 'active']
+    },
+    {
+      fields: ['name']
+    }
+  ],
   timestamps: true
 });
 
-// Índices para melhorar performance
-GeofenceSchema.index({ 'area.circle.center': '2dsphere' });
-GeofenceSchema.index({ 'area.polygon': '2dsphere' });
-GeofenceSchema.index({ 'area.route': '2dsphere' });
-GeofenceSchema.index({ userId: 1, active: 1 });
-GeofenceSchema.index({ devices: 1 });
+// Associações
+Geofence.belongsTo(User, { foreignKey: 'userId' });
 
-// Método para verificar se uma posição está dentro da geocerca
-GeofenceSchema.methods.containsPosition = function(position) {
-  const { latitude, longitude } = position;
-  
-  if (!latitude || !longitude) {
-    return false;
-  }
-  
-  // Ponto a ser verificado
-  const point = {
-    type: 'Point',
-    coordinates: [longitude, latitude]
-  };
-  
-  // Verificar com base no tipo de geocerca
-  if (this.type === 'circle' && this.area.circle) {
-    // Calcular distância entre o ponto e o centro do círculo
-    const center = this.area.circle.center.coordinates;
-    const radius = this.area.circle.radius;
-    
-    // Fórmula de Haversine para calcular distância entre dois pontos na Terra
-    const R = 6371000; // Raio da Terra em metros
-    const lat1 = latitude * Math.PI / 180;
-    const lat2 = center[1] * Math.PI / 180;
-    const deltaLat = (center[1] - latitude) * Math.PI / 180;
-    const deltaLon = (center[0] - longitude) * Math.PI / 180;
-    
-    const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
-              Math.cos(lat1) * Math.cos(lat2) *
-              Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c;
-    
-    return distance <= radius;
-  } 
-  else if (this.type === 'polygon' || this.type === 'rectangle') {
-    // Verificar se o ponto está dentro do polígono
-    return isPointInPolygon(point, this.area.polygon);
-  }
-  else if (this.type === 'route') {
-    // Verificar se o ponto está dentro do corredor da rota
-    return isPointNearLineString(point, this.area.route, this.area.route.width);
-  }
-  
-  return false;
-};
+// Associação muitos-para-muitos com dispositivos (a ser definida após a criação do modelo GeofenceDevice)
+// Geofence.belongsToMany(Device, { through: 'GeofenceDevice', foreignKey: 'geofenceId' });
 
-// Método para verificar se a geocerca está ativa no momento atual
-GeofenceSchema.methods.isActiveNow = function() {
-  if (!this.active) return false;
-  
-  // Se não tem programação, está sempre ativa
-  if (!this.schedule || !this.schedule.enabled) return true;
-  
-  // Data e hora atual baseada no timezone da geocerca
-  const now = new Date();
-  const timezone = this.schedule.timezone || 'America/Sao_Paulo';
-  const options = { timeZone: timezone };
-  
-  // Dia da semana atual (0-6, sendo 0 = domingo)
-  const dayOfWeek = now.getDay();
-  
-  // Verificar se o dia atual está configurado
-  if (!this.schedule.days.includes(dayOfWeek)) return false;
-  
-  // Hora e minuto atuais
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-  const currentTimeMinutes = currentHour * 60 + currentMinute;
-  
-  // Verificar se a hora atual está dentro de algum período configurado
-  return this.schedule.times.some(period => {
-    const [startHour, startMinute] = period.start.split(':').map(Number);
-    const [endHour, endMinute] = period.end.split(':').map(Number);
-    
-    const startTimeMinutes = startHour * 60 + startMinute;
-    const endTimeMinutes = endHour * 60 + endMinute;
-    
-    return currentTimeMinutes >= startTimeMinutes && currentTimeMinutes <= endTimeMinutes;
-  });
-};
-
-// Método para incrementar contador de eventos
-GeofenceSchema.methods.incrementEventCount = async function() {
-  this.stats.createdEvents += 1;
-  this.stats.lastEvent = new Date();
-  await this.save();
-};
-
-// Funções auxiliares para cálculos geoespaciais
-function isPointInPolygon(point, polygon) {
-  // Implementação do algoritmo de ray casting (ponto-em-polígono)
-  // Esta é uma implementação simplificada
-  
-  const x = point.coordinates[0];
-  const y = point.coordinates[1];
-  const vertices = polygon.coordinates[0]; // O primeiro anel do polígono
-  
-  let inside = false;
-  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-    const xi = vertices[i][0], yi = vertices[i][1];
-    const xj = vertices[j][0], yj = vertices[j][1];
-    
-    const intersect = ((yi > y) != (yj > y))
-        && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  
-  return inside;
-}
-
-function isPointNearLineString(point, lineString, maxDistance) {
-  // Verificar se um ponto está a uma distância máxima de uma linha
-  const pointCoords = point.coordinates;
-  const lineCoords = lineString.coordinates;
-  
-  // Encontrar o segmento de linha mais próximo
-  let minDistance = Infinity;
-  
-  for (let i = 0; i < lineCoords.length - 1; i++) {
-    const segment = [lineCoords[i], lineCoords[i + 1]];
-    const distance = distanceToSegment(pointCoords, segment);
-    
-    if (distance < minDistance) {
-      minDistance = distance;
-    }
-  }
-  
-  return minDistance <= maxDistance;
-}
-
-function distanceToSegment(point, segment) {
-  // Calcular a distância de um ponto a um segmento de linha
-  const [x, y] = point;
-  const [[x1, y1], [x2, y2]] = segment;
-  
-  // Calcular o quadrado da distância de linha usando projeção
-  const A = x - x1;
-  const B = y - y1;
-  const C = x2 - x1;
-  const D = y2 - y1;
-  
-  const dot = A * C + B * D;
-  const len_sq = C * C + D * D;
-  let param = -1;
-  
-  if (len_sq != 0) {
-    param = dot / len_sq;
-  }
-  
-  let xx, yy;
-  
-  if (param < 0) {
-    xx = x1;
-    yy = y1;
-  }
-  else if (param > 1) {
-    xx = x2;
-    yy = y2;
-  }
-  else {
-    xx = x1 + param * C;
-    yy = y1 + param * D;
-  }
-  
-  const dx = x - xx;
-  const dy = y - yy;
-  
-  // Convertendo para distância em metros (simplificado)
-  const R = 6371000; // Raio da Terra em metros
-  const lat1 = y * Math.PI / 180;
-  const lat2 = yy * Math.PI / 180;
-  const deltaLat = (yy - y) * Math.PI / 180;
-  const deltaLon = (xx - x) * Math.PI / 180;
-  
-  const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
-            Math.cos(lat1) * Math.cos(lat2) *
-            Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  
-  return R * c;
-}
-
-// Exportar o modelo
-const Geofence = mongoose.model('Geofence', GeofenceSchema);
 module.exports = Geofence;
