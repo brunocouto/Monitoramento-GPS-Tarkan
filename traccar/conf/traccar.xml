@@ -1,0 +1,88 @@
+<?xml version='1.0' encoding='UTF-8'?>
+
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+
+<properties>
+
+    <entry key='config.default'>./conf/default.xml</entry>
+
+    <!--
+    Configuração do banco de dados MySQL
+    -->
+    <entry key='database.driver'>com.mysql.jdbc.Driver</entry>
+    <entry key='database.url'>jdbc:mysql://localhost:3306/traccar_db?serverTimezone=UTC&amp;useSSL=false&amp;allowMultiQueries=true</entry>
+    <entry key='database.user'>traccar_user</entry>
+    <entry key='database.password'>traccar_password</entry>
+
+    <!--
+    Configuração da interface web
+    -->
+    <entry key='web.enable'>true</entry>
+    <entry key='web.port'>8082</entry>
+    <entry key='web.path'>./web</entry>
+
+    <!--
+    Configuração do servidor de dispositivos
+    -->
+    <entry key='device.timeout'>900</entry>
+    <entry key='processing.remoteAddress.enable'>true</entry>
+    
+    <!--
+    Protocolos disponíveis e portas
+    -->
+    <entry key='protocol.teltonika.port'>5027</entry>
+    <entry key='protocol.gt06.port'>5023</entry>
+    <entry key='protocol.tk103.port'>5024</entry>
+    <entry key='protocol.h02.port'>5025</entry>
+    <entry key='protocol.coban.port'>5026</entry>
+    
+    <!--
+    Configurações de notificação
+    -->
+    <entry key='notificator.types'>web,mail</entry>
+    <entry key='notificator.mail.smtp.host'>smtp.gmail.com</entry>
+    <entry key='notificator.mail.smtp.port'>587</entry>
+    <entry key='notificator.mail.smtp.starttls.enable'>true</entry>
+    <entry key='notificator.mail.smtp.from'>noreply@exemplo.com</entry>
+    <entry key='notificator.mail.smtp.auth'>true</entry>
+    <entry key='notificator.mail.smtp.username'>usuario@exemplo.com</entry>
+    <entry key='notificator.mail.smtp.password'>senha</entry>
+    
+    <!--
+    Configurações de geocodificação
+    -->
+    <entry key='geocoder.enable'>true</entry>
+    <entry key='geocoder.type'>google</entry>
+    <entry key='geocoder.url'>https://maps.googleapis.com/maps/api/geocode/json</entry>
+    <entry key='geocoder.key'></entry>
+    
+    <!--
+    Configurações de segurança
+    -->
+    <entry key='web.sessionTimeout'>3600</entry>
+    <entry key='web.cors.enable'>true</entry>
+    <entry key='web.cors.origin'>*</entry>
+    
+    <!--
+    Configurações de geofence
+    -->
+    <entry key='geofence.polylineDistance'>30</entry>
+    
+    <!--
+    Configurações diversas
+    -->
+    <entry key='logger.enable'>true</entry>
+    <entry key='logger.level'>info</entry>
+    <entry key='logger.file'>./logs/tracker-server.log</entry>
+    
+    <entry key='filter.enable'>true</entry>
+    <entry key='filter.future'>86400</entry>
+    <entry key='filter.accuracy'>100</entry>
+    <entry key='filter.invalid'>true</entry>
+    <entry key='filter.zero'>true</entry>
+    <entry key='filter.distance'>50</entry>
+    
+    <entry key='timezone'>America/Sao_Paulo</entry>
+    <entry key='coordinates.format'>decimal</entry>
+
+</properties>
