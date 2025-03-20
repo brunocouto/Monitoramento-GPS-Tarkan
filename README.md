@@ -18,8 +18,8 @@ O sistema é composto por:
 
 - **Frontend**: Interface web responsiva construída com Vue.js e otimizada para desempenho.
 - **Backend**: API RESTful construída com Node.js e Express.
-- **Banco de Dados**: MongoDB para armazenamento de dados.
-- **Cache**: Redis para cache e armazenamento de dados em tempo real.
+- **Banco de Dados**: MySQL para armazenamento de dados.
+- **Cache**: Sistema de cache para armazenamento de dados em tempo real.
 - **Servidor de Protocolos**: Para receber dados de diversos modelos de rastreadores.
 
 ## Estrutura do Repositório
@@ -48,8 +48,7 @@ O sistema é composto por:
 ## Pré-requisitos
 
 - Node.js 14.x ou superior
-- MongoDB 4.4 ou superior
-- Redis 6.x ou superior
+- MySQL 8.0 ou superior
 - Docker e Docker Compose (opcional, para implantação containerizada)
 
 ## Instalação
@@ -101,18 +100,3 @@ docker-compose up -d
 ```
 
 Consulte o arquivo [INSTALL.md](./INSTALL.md) para detalhes completos sobre implantação em produção.
-
-## Licença
-
-Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](./LICENSE) para detalhes.
-
-## Suporte
-
-Para obter suporte, entre em contato:
-
-- Email: suporte@tarkan.com.br
-- Site: [https://tarkan.com.br](https://tarkan.com.br)
-
----
-
-&copy; 2023-2025 Tarkan Sistemas de Rastreamento. Todos os direitos reservados.
