@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='UTF-8'?>
+
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+
+<properties>
+
+    <!--
+    Arquivo de configuração padrão para o servidor Traccar
+    Contém as configurações gerais que raramente precisam ser alteradas
+    -->
+    
+    <!--
+    Caminho para o diretório de logs
+    -->
+    <entry key='logger.file'>./logs/tracker-server.log</entry>
+    
+    <!--
+    Configurações de permissões para usuários
+    -->
+    <entry key='deviceReadonly'>false</entry>
+    <entry key='limitCommands'>false</entry>
+    <entry key='aclEnabled'>false</entry>
+    
+    <!--
+    Padrões para novos dispositivos
+    -->
+    <entry key='devicePassword'>null</entry>
+    <entry key='reportingInterval'>60</entry>
+    <entry key='decoder.ignoreSessionCache'>false</entry>
+    <entry key='processing.copyAttributes'>false</entry>
+    
+    <!--
+    Configurações de eventos
+    -->
+    <entry key='event.enable'>true</entry>
+    <entry key='event.ignoreDuplicateAlerts'>true</entry>
+    <entry key='event.overspeedGap'>300</entry>
+    <entry key='event.motion'>true</entry>
+    <entry key='event.overspeed'>true</entry>
+    <entry key='event.geofence'>true</entry>
+    <entry key='event.ignition'>true</entry>
+    
+    <!--
+    Comandos de sistema
+    -->
+    <entry key='status.enableUnknown'>true</entry>
+    <entry key='command.timeout'>60</entry>
+    
+    <!--
+    Formatos de data e hora
+    -->
+    <entry key='web.dateFormat'>dd/MM/yyyy</entry>
+    <entry key='web.timeFormat'>HH:mm:ss</entry>
+    <entry key='web.zoomLevel'>14</entry>
+    <entry key='web.mapUrl'>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</entry>
+    <entry key='web.mapAttribution'>Map data © OpenStreetMap contributors</entry>
+    
+    <!--
+    Configuração avançada de alertas
+    -->
+    <entry key='alert.geocodeOnRequest'>true</entry>
+    <entry key='alert.minimumInterval'>60</entry>
+    
+    <!--
+    Suporte a plugins e módulos adicionais
+    -->
+    <entry key='plugin.enable'>true</entry>
+    <entry key='database.changelog'>./schema/changelog-master.xml</entry>
+    
+    <!--
+    Configurações para integração
+    -->
+    <entry key='api.enable'>true</entry>
+    <entry key='api.port'>8083</entry>
+    <entry key='api.key'>tarkan_api_key_change_this</entry>
+
+</properties>
