@@ -3,167 +3,175 @@
  * Modelo de dados de Posição
  */
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+const { DataTypes, Model } = require('sequelize');
+const sequelize = require('../config/database');
+const Device = require('./Device');
 
-// Esquema geoespacial otimizado para consultas de localização
-const PositionSchema = new Schema({
+class Position extends Model {}
+
+Position.init({
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   deviceId: {
-    type: Schema.Types.ObjectId,
-    ref: 'Device',
-    required: true,
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'devices',
+      key: 'id'
+    },
     index: true
   },
   protocol: {
-    type: String,
-    default: 'unknown'
+    type: DataTypes.STRING(128),
+    defaultValue: 'unknown'
   },
-  timestamp: {
-    type: Date,
-    default: Date.now,
+  serverTime: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  deviceTime: {
+    type: DataTypes.DATE,
+    allowNull: false
+  },
+  fixTime: {
+    type: DataTypes.DATE,
+    allowNull: false,
     index: true
   },
   // Coordenadas geográficas
   latitude: {
-    type: Number,
-    required: true
+    type: DataTypes.DOUBLE,
+    allowNull: false
   },
   longitude: {
-    type: Number,
-    required: true
+    type: DataTypes.DOUBLE,
+    allowNull: false
   },
   altitude: {
-    type: Number,
-    default: 0
+    type: DataTypes.FLOAT,
+    defaultValue: 0
   },
   speed: {
-    type: Number,
-    default: 0,
+    type: DataTypes.FLOAT,
+    defaultValue: 0,
     index: true
   },
   course: {
-    type: Number,
-    default: 0
+    type: DataTypes.FLOAT,
+    defaultValue: 0
   },
-  // Localização em formato GeoJSON para consultas espaciais
-  location: {
-    type: {
-      type: String,
-      enum: ['Point'],
-      default: 'Point'
-    },
-    coordinates: {
-      type: [Number], // [longitude, latitude]
-      index: '2dsphere'
-    }
+  address: {
+    type: DataTypes.STRING,
+    allowNull: true
   },
-  // Atributos adicionais do dispositivo (pode incluir nível de combustível, temperatura, etc.)
+  // Dados adicionais
+  accuracy: {
+    type: DataTypes.FLOAT,
+    allowNull: true
+  },
+  // Atributos adicionais em formato JSON
   attributes: {
-    type: Map,
-    of: Schema.Types.Mixed,
-    default: {}
+    type: DataTypes.JSON,
+    defaultValue: {}
   },
   // Flag para indicar se esta posição foi calculada ou é uma leitura real
-  calculated: {
-    type: Boolean,
-    default: false
+  valid: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
   // Distância percorrida desde a última posição (em metros)
   distance: {
-    type: Number,
-    default: 0
+    type: DataTypes.FLOAT,
+    defaultValue: 0
   },
   // Identificação de viagem e parada
   tripId: {
-    type: Schema.Types.ObjectId,
-    ref: 'Trip',
+    type: DataTypes.INTEGER,
+    allowNull: true,
     index: true
   },
   isStop: {
-    type: Boolean,
-    default: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
     index: true
-  },
-  // Geocercas ativas no momento desta posição
-  activeGeofences: [{
-    type: Schema.Types.ObjectId,
-    ref: 'Geofence'
-  }],
-  // Eventos associados a esta posição
-  events: [{
-    type: {
-      type: String,
-      enum: ['geofenceEnter', 'geofenceExit', 'speedLimit', 'engineOn', 'engineOff', 'alarm', 'sos', 'other']
-    },
-    geofenceId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Geofence'
-    },
-    description: String,
-    data: Schema.Types.Mixed
-  }]
+  }
 }, {
+  sequelize,
+  modelName: 'Position',
+  tableName: 'positions',
+  indexes: [
+    {
+      fields: ['deviceId', 'fixTime']
+    },
+    {
+      fields: ['fixTime']
+    },
+    {
+      fields: ['deviceId', 'isStop']
+    }
+  ],
   timestamps: true
 });
 
-// Middleware pré-save para garantir consistência de dados
-PositionSchema.pre('save', function(next) {
-  // Garantir que a localização GeoJSON seja atualizada com as coordenadas
-  this.location = {
-    type: 'Point',
-    coordinates: [this.longitude, this.latitude] // GeoJSON usa [longitude, latitude]
-  };
+// Associações
+Position.belongsTo(Device, { foreignKey: 'deviceId' });
 
-  next();
-});
-
-// Middleware pré-update para garantir consistência de dados
-PositionSchema.pre('findOneAndUpdate', function(next) {
-  const update = this.getUpdate();
-  
-  // Se latitude ou longitude forem atualizados, atualizar location também
-  if (update.latitude !== undefined || update.longitude !== undefined) {
-    const latitude = update.latitude !== undefined ? update.latitude : this._update.$set.latitude;
-    const longitude = update.longitude !== undefined ? update.longitude : this._update.$set.longitude;
-    
-    if (!update.$set) update.$set = {};
-    update.$set.location = {
-      type: 'Point',
-      coordinates: [longitude, latitude]
-    };
+// Hooks
+Position.addHook('afterCreate', async (position, options) => {
+  try {
+    // Atualizar informações do dispositivo quando uma nova posição é registrada
+    await Device.update({
+      lastUpdate: new Date(),
+      lastPositionId: position.id,
+      status: 'online',
+      latitude: position.latitude,
+      longitude: position.longitude,
+      course: position.course,
+      speed: position.speed
+    }, {
+      where: { id: position.deviceId },
+      transaction: options.transaction
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar dispositivo após nova posição:', error);
   }
-
-  next();
 });
-
-// Índices para otimização de consultas comuns
-PositionSchema.index({ deviceId: 1, timestamp: -1 }); // Busca de posições de um dispositivo por ordem de tempo
-PositionSchema.index({ timestamp: -1 }); // Busca global por tempo
-PositionSchema.index({ 'events.type': 1 }); // Busca por tipos de eventos
 
 // Métodos estáticos para operações comuns
-PositionSchema.statics.getLatestPositions = async function(deviceIds) {
-  return this.aggregate([
-    {
-      $match: { deviceId: { $in: deviceIds } }
+Position.getLatestPositions = async function(deviceIds) {
+  const positions = await this.findAll({
+    where: {
+      deviceId: deviceIds
     },
-    {
-      $sort: { timestamp: -1 }
-    },
-    {
-      $group: {
-        _id: "$deviceId",
-        position: { $first: "$$ROOT" }
-      }
-    },
-    {
-      $replaceRoot: { newRoot: "$position" }
+    order: [
+      ['deviceId', 'ASC'],
+      ['fixTime', 'DESC']
+    ],
+    include: [{
+      model: Device,
+      attributes: ['name', 'category', 'status']
+    }]
+  });
+
+  // Filtrar para obter apenas a posição mais recente de cada dispositivo
+  const latestPositions = [];
+  const seen = new Set();
+  
+  for (const position of positions) {
+    if (!seen.has(position.deviceId)) {
+      seen.add(position.deviceId);
+      latestPositions.push(position);
     }
-  ]);
+  }
+  
+  return latestPositions;
 };
 
 // Método para calcular distância entre posições
-PositionSchema.statics.calculateDistance = function(lat1, lon1, lat2, lon2) {
+Position.calculateDistance = function(lat1, lon1, lat2, lon2) {
   const R = 6371; // Raio da Terra em km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -176,34 +184,23 @@ PositionSchema.statics.calculateDistance = function(lat1, lon1, lat2, lon2) {
 };
 
 // Método para buscar posições dentro de um raio
-PositionSchema.statics.findWithinRadius = async function(lat, lon, radiusKm, options = {}) {
+Position.findWithinRadius = async function(lat, lon, radiusKm, options = {}) {
   const { startTime, endTime, limit = 100 } = options;
   
-  const query = {
-    location: {
-      $nearSphere: {
-        $geometry: {
-          type: "Point",
-          coordinates: [lon, lat]
-        },
-        $maxDistance: radiusKm * 1000 // Converter para metros
-      }
-    }
-  };
-
-  if (startTime || endTime) {
-    query.timestamp = {};
-    if (startTime) query.timestamp.$gte = new Date(startTime);
-    if (endTime) query.timestamp.$lte = new Date(endTime);
-  }
-
-  return this.find(query).limit(limit);
+  // Não é possível usar operadores espaciais diretamente com Sequelize, então fazemos uma consulta SQL personalizada
+  const [positions] = await sequelize.query(`
+    SELECT * FROM positions
+    WHERE ST_Distance_Sphere(
+      point(longitude, latitude),
+      point(${lon}, ${lat})
+    ) <= ${radiusKm * 1000}
+    ${startTime ? `AND fixTime >= '${new Date(startTime).toISOString()}'` : ''}
+    ${endTime ? `AND fixTime <= '${new Date(endTime).toISOString()}'` : ''}
+    ORDER BY fixTime DESC
+    LIMIT ${limit}
+  `);
+  
+  return positions;
 };
 
-// Criar índices TTL opcionais para limpeza automática de dados antigos
-// Descomentar apenas se desejar limpeza automática
-// PositionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 90 }); // 90 dias
-
-// Exportar modelo
-const Position = mongoose.model('Position', PositionSchema);
 module.exports = Position;
