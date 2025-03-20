@@ -1,0 +1,45 @@
+# Arquivos de ambiente
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependências
+node_modules/
+/dist/
+/build/
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Arquivos do IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Arquivos temporários
+*.swp
+*.swo
+.tmp/
+temp/
+
+# Arquivos de configuração local
+restart-nginx.bat
+start-all.bat
+stop-all.bat
+start-services.bat
+install.bat
+*.bat
+
+# Traccar arquivos de dados
+traccar/data/
+traccar/logs/
