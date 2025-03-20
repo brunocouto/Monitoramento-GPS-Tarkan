@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xml:lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="description" content="Sistema de Monitoramento GPS Tarkan - Rastreamento em tempo real para sua frota">
+    <meta name="keywords" content="GPS, rastreamento, frotas, monitoramento, veículos, tracking">
+    
+    <!-- Sistema de otimização de recursos -->
+    <script src="/js/fix-paths.js"></script>
+    
+    <!-- Módulos de sistema -->
+    <script src="/js/auth-fix.js"></script>
+    <script src="/js/positions-fix.js"></script>
+    
+    <!-- Configuração básica -->
+    <title>Monitoramento GPS Tarkan</title>
+    
+    <!-- Configuração da API -->
+    <script src="/config.js"></script>
+    <script src="/js/api-config.js"></script>
+    
+    <!-- Estilos -->
+    <link href="/css/app.2710b3ff.css" rel="stylesheet">
+    <link href="/css/chunk-vendors.94e09981.css" rel="stylesheet">
+    <link href="/css/app-fixes.css" rel="stylesheet">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0066cc">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="GPS Tarkan">
+    
+    <!-- Ícones -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/logo.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/logo.png">
+    <link rel="apple-touch-icon" href="/img/logo.png">
+    
+    <!-- Otimização de carregamento - prioritizando recursos críticos -->
+    <link rel="preload" fetchpriority="high" href="/img/bg.jpg" as="image">
+    <link rel="preload" fetchpriority="high" href="/img/logoWhite.png" as="image">
+    <link rel="preload" fetchpriority="high" href="/img/logo.png" as="image">
+    
+    <!-- Estilo inline estratégico para carregamento rápido da página -->
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        .login[data-v-10b92f17] {
+            background-image: url('/img/bg.jpg') !important;
+            background-size: cover !important;
+            background-position: center !important;
+        }
+        [style*="/tarkan/assets/custom/bg.jpg"] {
+            background-image: url('/img/bg.jpg') !important;
+        }
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+        .loading-screen img {
+            width: 120px;
+            height: auto;
+        }
+        .loading-progress {
+            width: 200px;
+            height: 4px;
+            background-color: #f0f0f0;
+            border-radius: 2px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        .loading-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #0066cc;
+            transition: width 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <noscript>
+        <strong>O Sistema de Monitoramento GPS Tarkan requer JavaScript habilitado. Por favor, ative JavaScript no seu navegador para continuar.</strong>
+    </noscript>
+    
+    <!-- Tela de carregamento otimizada -->
+    <div class="loading-screen" id="loading-screen">
+        <div style="text-align: center;">
+            <img src="/img/logo.png" alt="Tarkan GPS">
+            <div class="loading-progress">
+                <div class="loading-bar" id="loading-bar"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="app"></div>
+    
+    <!-- Scripts principais -->
+    <script src="/js/chunk-vendors.e793050f.js"></script>
+    <script src="/js/app.8c50f6dc.js"></script>
+    
+    <!-- Sistema de otimização e carregamento -->
+    <script>
+        // Gerenciamento avançado de carregamento
+        document.addEventListener('DOMContentLoaded', function() {
+            // Simulação de progresso de carregamento
+            const loadingBar = document.getElementById('loading-bar');
+            let progress = 0;
+            
+            const interval = setInterval(function() {
+                progress += 5;
+                loadingBar.style.width = progress + '%';
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(function() {
+                        const loadingScreen = document.getElementById('loading-screen');
+                        loadingScreen.style.opacity = 0;
+                        setTimeout(function() {
+                            loadingScreen.style.display = 'none';
+                        }, 500);
+                    }, 200);
+                }
+            }, 100);
+            
+            // Registrar o service worker de forma eficiente
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/service-worker.js')
+                        .then(function(registration) {
+                            console.log('Service Worker registrado com sucesso:', registration.scope);
+                        })
+                        .catch(function(error) {
+                            console.log('Registro do Service Worker falhou silenciosamente:', error);
+                        });
+                });
+            }
+            
+            // Otimização de recursos de imagem
+            const elements = document.querySelectorAll('[style*="/tarkan/assets/custom/"]');
+            for (const el of elements) {
+                let style = el.getAttribute('style');
+                if (!style) continue;
+                
+                if (style.includes('/tarkan/assets/custom/bg.jpg')) {
+                    style = style.replace(/\/tarkan\/assets\/custom\/bg\.jpg/g, '/img/bg.jpg');
+                    el.setAttribute('style', style);
+                }
+                
+                if (style.includes('/tarkan/assets/custom/logowhite.png')) {
+                    style = style.replace(/\/tarkan\/assets\/custom\/logowhite\.png/g, '/img/logoWhite.png');
+                    el.setAttribute('style', style);
+                }
+            }
+            
+            // Forçar uso dos recursos precarregados para otimização
+            setTimeout(function() {
+                const bgImage = new Image();
+                bgImage.src = '/img/bg.jpg';
+                
+                const logoWhiteImage = new Image();
+                logoWhiteImage.src = '/img/logoWhite.png';
+                
+                const logoImage = new Image();
+                logoImage.src = '/img/logo.png';
+                
+                setTimeout(function() {
+                    bgImage.remove();
+                    logoWhiteImage.remove();
+                    logoImage.remove();
+                }, 1000);
+            }, 100);
+        });
+    </script>
+</body>
+</html>
