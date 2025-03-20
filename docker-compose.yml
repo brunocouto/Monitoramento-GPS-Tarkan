@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # Aplicação backend Node.js
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tarkan-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "5023:5023" # Porta para protocolo de comunicação com dispositivos
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=traccar_db
+      - DB_USER=traccar_user
+      - DB_PASSWORD=traccar_password
+      - JWT_SECRET=jwt_secret_key_change_me_in_production
+      - JWT_EXPIRE=7d
+      - PROTOCOL_PORT=5023
+      - TIMEZONE=America/Sao_Paulo
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - db
+    networks:
+      - tarkan-network
+
+  # Serviço de banco de dados MySQL
+  db:
+    image: mysql:8.0
+    container_name: tarkan-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: traccar_db
+      MYSQL_USER: traccar_user
+      MYSQL_PASSWORD: traccar_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init-db:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password
+             --character-set-server=utf8mb4
+             --collation-server=utf8mb4_unicode_ci
+    networks:
+      - tarkan-network
+    
+  # Serviço de servidor web nginx
+  nginx:
+    image: nginx:latest
+    container_name: tarkan-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./frontend:/usr/share/nginx/html
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - tarkan-network
+
+networks:
+  tarkan-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
